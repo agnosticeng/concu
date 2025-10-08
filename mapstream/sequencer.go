@@ -7,12 +7,10 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-type SequencerConfig struct{}
-
-func Sequencer[T any](
+func sequencer[T any](
 	ctx context.Context,
-	inChan chan Task[T],
-	outChan chan T,
+	inChan <-chan Task[T],
+	outChan chan<- T,
 	sem *semaphore.Weighted,
 ) error {
 	var (

@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"math"
-	"time"
 
 	"golang.org/x/sync/semaphore"
 )
 
 var ErrNoMoreSequenceNumber = errors.New("no more sequence number")
 
-func Stamper[T any](
+func stamper[T any](
 	ctx context.Context,
-	inChan chan T,
-	outChan chan Task[T],
+	inChan <-chan T,
+	outChan chan<- Task[T],
 	sem *semaphore.Weighted,
 ) error {
 	defer close(outChan)
@@ -37,7 +36,7 @@ func Stamper[T any](
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case outChan <- Task[T]{SequenceNumber: nextSequenceNumber, CreatedAt: time.Now(), Value: item}:
+			case outChan <- Task[T]{SequenceNumber: nextSequenceNumber, Value: item}:
 				nextSequenceNumber++
 
 				if nextSequenceNumber == math.MaxUint64 {

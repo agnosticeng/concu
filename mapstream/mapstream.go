@@ -9,6 +9,7 @@ import (
 )
 
 type MapStreamConfig struct {
+	Ordered           bool
 	PoolSize          int
 	SemaphoreWeight   int
 	WorkerChanSize    int
@@ -17,8 +18,8 @@ type MapStreamConfig struct {
 
 func MapStream[I any, O any](
 	ctx context.Context,
-	inChan chan I,
-	outChan chan O,
+	inChan <-chan I,
+	outChan chan<- O,
 	f func(context.Context, I) (O, error),
 	conf MapStreamConfig,
 ) error {
@@ -46,33 +47,50 @@ func MapStream[I any, O any](
 
 	group, groupCtx := errgroup.WithContext(ctx)
 
-	group.Go(
-		func() error {
-			return Stamper(groupCtx, inChan, workerChan, sem)
-		},
-	)
+	if conf.Ordered {
+		group.Go(
+			func() error {
+				return stamper(groupCtx, inChan, workerChan, sem)
+			},
+		)
 
-	group.Go(
-		func() error {
-			defer close(sequencerChan)
+		group.Go(
+			func() error {
+				defer close(sequencerChan)
 
+				return worker.RunN(
+					groupCtx,
+					conf.PoolSize,
+					func(ctx context.Context, i int) func() error {
+						return func() error {
+							return taskMapper(ctx, workerChan, sequencerChan, f)
+						}
+					},
+				)
+			},
+		)
+
+		if conf.Ordered {
+			group.Go(
+				func() error {
+					return sequencer(groupCtx, sequencerChan, outChan, sem)
+				},
+			)
+		}
+	} else {
+		group.Go(func() error {
 			return worker.RunN(
 				groupCtx,
 				conf.PoolSize,
 				func(ctx context.Context, i int) func() error {
 					return func() error {
-						return Worker(ctx, workerChan, sequencerChan, f)
+						return Mapper(ctx, inChan, outChan, f)
 					}
 				},
 			)
-		},
-	)
 
-	group.Go(
-		func() error {
-			return Sequencer(groupCtx, sequencerChan, outChan, sem)
-		},
-	)
+		})
+	}
 
 	return group.Wait()
 }

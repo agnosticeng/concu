@@ -8,8 +8,6 @@ import (
 
 type WorkerFactoryFunc func(ctx context.Context, i int) func() error
 
-type OnExitFunc func()
-
 func RunN(
 	ctx context.Context,
 	numWorkers int,

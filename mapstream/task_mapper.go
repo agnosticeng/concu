@@ -4,10 +4,10 @@ import (
 	"context"
 )
 
-func Worker[I any, O any](
+func taskMapper[I any, O any](
 	ctx context.Context,
-	inChan chan Task[I],
-	outChan chan Task[O],
+	inChan <-chan Task[I],
+	outChan chan<- Task[O],
 	f func(context.Context, I) (O, error),
 ) error {
 	for {
@@ -30,7 +30,6 @@ func Worker[I any, O any](
 				return ctx.Err()
 			case outChan <- Task[O]{
 				SequenceNumber: task.SequenceNumber,
-				CreatedAt:      task.CreatedAt,
 				Value:          res,
 			}:
 			}

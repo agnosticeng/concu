@@ -2,12 +2,10 @@ package mapstream
 
 import (
 	"sort"
-	"time"
 )
 
 type Task[T any] struct {
 	SequenceNumber uint64
-	CreatedAt      time.Time
 	Value          T
 }
 
