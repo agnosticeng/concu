@@ -23,6 +23,24 @@ func MapStream[I any, O any](
 	f func(context.Context, I) (O, error),
 	conf MapStreamConfig,
 ) error {
+	return MapStreamIndex(
+		ctx,
+		inChan,
+		outChan,
+		func(ctx context.Context, i int) func(context.Context, I) (O, error) {
+			return f
+		},
+		conf,
+	)
+}
+
+func MapStreamIndex[I any, O any](
+	ctx context.Context,
+	inChan <-chan I,
+	outChan chan<- O,
+	f func(ctx context.Context, i int) func(context.Context, I) (O, error),
+	conf MapStreamConfig,
+) error {
 	if conf.PoolSize <= 0 {
 		conf.PoolSize = 1
 	}
@@ -63,7 +81,7 @@ func MapStream[I any, O any](
 					conf.PoolSize,
 					func(ctx context.Context, i int) func() error {
 						return func() error {
-							return taskMapper(ctx, workerChan, sequencerChan, f)
+							return taskMapper(ctx, workerChan, sequencerChan, f(ctx, i))
 						}
 					},
 				)
@@ -84,11 +102,10 @@ func MapStream[I any, O any](
 				conf.PoolSize,
 				func(ctx context.Context, i int) func() error {
 					return func() error {
-						return Mapper(ctx, inChan, outChan, f)
+						return Mapper(ctx, inChan, outChan, f(ctx, i))
 					}
 				},
 			)
-
 		})
 	}
 
